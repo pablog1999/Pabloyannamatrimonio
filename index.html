@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anna & Pablo — Invitación de Boda</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Great+Vibes&family=Cinzel:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #cbc4b4;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      overflow: hidden;
+    }
+
+    /* ─── SCENE ─── */
+    #scene {
+      position: relative;
+      width: 100%;
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 3rem;
+      transition: opacity 0.7s ease;
+    }
+
+    /* ─── ENVELOPE ─── */
+    #envelope-wrap {
+      position: relative;
+      width: 340px;
+      height: 230px;
+      cursor: pointer;
+      z-index: 10;
+      filter: drop-shadow(0 12px 32px rgba(0,0,0,0.25));
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+    #envelope-wrap:hover { transform: scale(1.02); }
+
+    #env-body {
+      position: absolute;
+      inset: 0;
+      background: #ede6d4;
+      border: 1px solid #c8ba9a;
+    }
+    #env-bottom-left {
+      position: absolute; bottom: 0; left: 0;
+      width: 0; height: 0;
+      border-left: 170px solid #ddd3b8;
+      border-top: 115px solid transparent;
+    }
+    #env-bottom-right {
+      position: absolute; bottom: 0; right: 0;
+      width: 0; height: 0;
+      border-right: 170px solid #d5cbb0;
+      border-top: 115px solid transparent;
+    }
+    #env-left-flap {
+      position: absolute; left: 0; top: 0;
+      width: 0; height: 0;
+      border-left: 170px solid #e0d8c2;
+      border-top: 115px solid transparent;
+      border-bottom: 115px solid transparent;
+    }
+    #env-right-flap {
+      position: absolute; right: 0; top: 0;
+      width: 0; height: 0;
+      border-right: 170px solid #d8d0ba;
+      border-top: 115px solid transparent;
+      border-bottom: 115px solid transparent;
+    }
+
+    /* Top flap */
+    #env-top-flap {
+      position: absolute;
+      top: 0; left: 0;
+      width: 340px; height: 115px;
+      transform-origin: top center;
+      transform-style: preserve-3d;
+      transition: transform 0.85s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 20;
+    }
+    #env-top-flap svg { width: 100%; height: 100%; }
+    #env-top-flap.open { transform: rotateX(180deg); }
+
+    /* Wax seal */
+    #wax-seal {
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: 52px; height: 52px;
+      z-index: 25;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    #wax-seal.hidden {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.4);
+      pointer-events: none;
+    }
+
+    /* Tap hint */
+    #tap-hint {
+      margin-top: 1.4rem;
+      font-family: 'Cinzel', serif;
+      font-size: 0.62rem;
+      letter-spacing: 0.28em;
+      color: #7a6a50;
+      text-transform: uppercase;
+      transition: opacity 0.4s ease;
+    }
+    #tap-hint.hidden { opacity: 0; }
+
+    /* ══════════════════════════════════════════
+       FOLDED CARD SYSTEM
+       The card is made of 3 panels:
+         top-panel    — upper third of invitation
+         mid-panel    — middle third
+         bot-panel    — lower third (the base, always visible)
+       They fold using perspective + rotateX on
+       transform-origin at their shared edges.
+    ══════════════════════════════════════════ */
+
+    #card-outer {
+      position: absolute;
+      /* sits inside envelope, rises up */
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%) translateY(0px);
+      width: 280px;
+      z-index: 6;
+      /* perspective for 3D fold */
+      perspective: 900px;
+      perspective-origin: center center;
+      opacity: 0;
+      pointer-events: none;
+      /* rise transition controlled by JS class */
+      transition: transform 1.4s cubic-bezier(0.22, 1, 0.36, 1),
+                  opacity  0.5s ease;
+    }
+    #card-outer.rising {
+      transform: translateX(-50%) translateY(-480px);
+      opacity: 1;
+    }
+
+    /* Base / bottom panel — always flat, anchor */
+    #panel-bot {
+      position: relative;
+      width: 280px;
+      background: #f5f0e8;
+      overflow: hidden;
+      /* Height: 1/3 of full card ≈ 280px */
+      height: 280px;
+      transform-origin: bottom center;
+      /* box shadow only on the base */
+      box-shadow: 0 16px 48px rgba(0,0,0,0.22);
+    }
+
+    /* Mid panel folds down from top of bot-panel */
+    #panel-mid-wrap {
+      position: absolute;
+      bottom: 100%;   /* sits right on top of bot-panel */
+      left: 0;
+      width: 280px;
+      height: 280px;
+      transform-origin: bottom center;
+      transform-style: preserve-3d;
+      /* starts folded: rotated back ~160deg so it's tucked behind */
+      transform: rotateX(160deg);
+      transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #panel-mid {
+      position: absolute;
+      inset: 0;
+      background: #f5f0e8;
+      overflow: hidden;
+      backface-visibility: hidden;
+    }
+
+    /* Top panel folds down from top of mid-panel */
+    #panel-top-wrap {
+      position: absolute;
+      bottom: 100%;
+      left: 0;
+      width: 280px;
+      height: 260px;
+      transform-origin: bottom center;
+      transform-style: preserve-3d;
+      /* starts folded */
+      transform: rotateX(160deg);
+      transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1) 0.15s;
+    }
+    #panel-top {
+      position: absolute;
+      inset: 0;
+      background: #f5f0e8;
+      overflow: hidden;
+      backface-visibility: hidden;
+    }
+
+    /* Unfolded state */
+    #panel-mid-wrap.unfolded { transform: rotateX(0deg); }
+    #panel-top-wrap.unfolded { transform: rotateX(0deg); }
+
+    /* crease lines between panels */
+    .crease {
+      position: absolute;
+      left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(to right, transparent, #c8b898 20%, #c8b898 80%, transparent);
+      opacity: 0.6;
+      z-index: 2;
+    }
+    #panel-mid .crease { bottom: 0; }
+    #panel-top .crease { bottom: 0; }
+
+    /* ─── CARD CONTENT sliced across panels ─── */
+    /* The full card content is 820px tall (top+mid+bot each ~273px).
+       We absolutely-position a single content div, then clip each panel. */
+
+    .card-content-full {
+      position: absolute;
+      top: 0; left: 0;
+      width: 280px;
+      /* each panel shows its slice */
+    }
+
+    /* TOP PANEL shows top 260px of content */
+    #panel-top { overflow: hidden; }
+    #ct { top: 0; }
+
+    /* MID PANEL shows px 260–540 of content */
+    #panel-mid { overflow: hidden; }
+    #cm { top: -260px; }
+
+    /* BOT PANEL shows px 540–820 of content */
+    #panel-bot { overflow: hidden; }
+    #cb { top: -540px; }
+
+    /* ─── SHARED CARD STYLES ─── */
+    .card-inner {
+      width: 280px;
+      padding: 1.8rem 1.6rem 1.6rem;
+      text-align: center;
+      position: relative;
+      background: #f5f0e8;
+    }
+    .card-inner::before, .card-inner::after {
+      content: '';
+      position: absolute;
+      width: 54px; height: 54px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23a09070' stroke-width='0.8'%3E%3Cellipse cx='20' cy='60' rx='8' ry='14' transform='rotate(-30 20 60)'/%3E%3Cellipse cx='35' cy='45' rx='6' ry='11' transform='rotate(-15 35 45)'/%3E%3Cellipse cx='50' cy='30' rx='5' ry='9' transform='rotate(10 50 30)'/%3E%3Cpath d='M10 70 Q25 50 55 20'/%3E%3Ccircle cx='18' cy='55' r='1.5' fill='%23a09070'/%3E%3Ccircle cx='30' cy='42' r='1.5' fill='%23a09070'/%3E%3Ccircle cx='47' cy='27' r='1.5' fill='%23a09070'/%3E%3C/g%3E%3C/svg%3E");
+      background-size: contain;
+      background-repeat: no-repeat;
+      opacity: 0.65;
+    }
+    .card-inner::before { top: 6px; left: 6px; }
+    .card-inner::after  { bottom: 6px; right: 6px; transform: rotate(180deg); }
+
+    .crest { margin: 0 auto 1.2rem; width: 88px; }
+    .crest svg { width: 100%; height: auto; }
+
+    .rule      { width: 60%; margin: 0.85rem auto; border: none; border-top: 0.5px solid #a09070; }
+    .rule-short{ width: 30%; margin: 0.55rem auto; border: none; border-top: 0.5px solid #a09070; }
+
+    .hosts { font-family: 'Cinzel', serif; font-size: 0.55rem; letter-spacing: 0.18em; color: #5a4e38; text-transform: uppercase; }
+    .invitation-text { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 0.76rem; color: #6b5d45; line-height: 1.65; margin: 0.45rem 0; }
+    .bride-name  { font-family: 'Great Vibes', cursive; font-size: 2.1rem; color: #3d3225; line-height: 1.2; }
+    .connector   { font-family: 'Great Vibes', cursive; font-size: 1.15rem; color: #7a6a50; display: block; }
+    .groom-name  { font-family: 'Great Vibes', cursive; font-size: 2.1rem; color: #3d3225; line-height: 1.2; }
+    .groom-parents { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 0.68rem; color: #7a6a50; margin-top: 0.35rem; }
+    .event-detail { font-family: 'Cinzel', serif; font-size: 0.55rem; letter-spacing: 0.16em; color: #5a4e38; text-transform: uppercase; line-height: 2; }
+    .section-label { font-family: 'Cinzel', serif; font-size: 0.5rem; letter-spacing: 0.2em; text-transform: uppercase; color: #a09070; margin: 0.95rem 0 0.2rem; }
+    .venue-name  { font-family: 'Great Vibes', cursive; font-size: 1.25rem; color: #3d3225; line-height: 1.3; }
+    .venue-address { font-family: 'Cormorant Garamond', serif; font-size: 0.62rem; color: #7a6a50; letter-spacing: 0.07em; text-transform: uppercase; line-height: 1.75; }
+    .dress-code  { font-family: 'Great Vibes', cursive; font-size: 1.15rem; color: #5a4e38; }
+    .rsvp-link   { font-family: 'Cinzel', serif; font-size: 0.5rem; letter-spacing: 0.14em; color: #5a4e38; text-decoration: none; text-transform: uppercase; border-bottom: 0.5px solid #a09070; padding-bottom: 1px; }
+    .rsvp-deadline { font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 0.64rem; color: #7a6a50; margin-top: 0.25rem; }
+    .diamond { display: inline-block; color: #a09070; font-size: 0.5rem; margin: 0 0.35rem; }
+
+    /* ─── FULL CARD (phase 2) ─── */
+    #full-card-wrap {
+      display: none;
+      width: 100%;
+      max-width: 520px;
+      padding: 2rem 1rem 4rem;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+    .full-card {
+      background: #f5f0e8;
+      padding: 3.5rem 3rem 3rem;
+      text-align: center;
+      position: relative;
+      box-shadow: 0 8px 48px rgba(0,0,0,0.18);
+    }
+    .full-card::before, .full-card::after {
+      content: '';
+      position: absolute;
+      width: 80px; height: 80px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80'%3E%3Cg fill='none' stroke='%23a09070' stroke-width='0.8'%3E%3Cellipse cx='20' cy='60' rx='8' ry='14' transform='rotate(-30 20 60)'/%3E%3Cellipse cx='35' cy='45' rx='6' ry='11' transform='rotate(-15 35 45)'/%3E%3Cellipse cx='50' cy='30' rx='5' ry='9' transform='rotate(10 50 30)'/%3E%3Cpath d='M10 70 Q25 50 55 20'/%3E%3Ccircle cx='18' cy='55' r='1.5' fill='%23a09070'/%3E%3Ccircle cx='30' cy='42' r='1.5' fill='%23a09070'/%3E%3Ccircle cx='47' cy='27' r='1.5' fill='%23a09070'/%3E%3C/g%3E%3C/svg%3E");
+      background-size: contain; background-repeat: no-repeat; opacity: 0.7;
+    }
+    .full-card::before { top: 12px; left: 12px; }
+    .full-card::after  { bottom: 12px; right: 12px; transform: rotate(180deg); }
+
+    .full-card .crest { margin: 0 auto 2rem; width: 130px; }
+    .full-card .hosts { font-size: 0.72rem; letter-spacing: 0.22em; }
+    .full-card .invitation-text { font-size: 0.95rem; }
+    .full-card .bride-name  { font-size: 3rem; }
+    .full-card .connector   { font-size: 1.6rem; }
+    .full-card .groom-name  { font-size: 3rem; }
+    .full-card .groom-parents { font-size: 0.88rem; }
+    .full-card .event-detail { font-size: 0.72rem; letter-spacing: 0.2em; }
+    .full-card .section-label { font-size: 0.65rem; letter-spacing: 0.25em; margin: 1.4rem 0 0.3rem; }
+    .full-card .venue-name  { font-size: 1.7rem; }
+    .full-card .venue-address { font-size: 0.82rem; }
+    .full-card .dress-code  { font-size: 1.5rem; }
+    .full-card .rsvp-link   { font-size: 0.65rem; letter-spacing: 0.18em; }
+    .full-card .rsvp-deadline { font-size: 0.82rem; }
+    .full-card .diamond     { font-size: 0.6rem; margin: 0 0.5rem; }
+    .full-card .rule        { margin: 1.2rem auto; }
+    .full-card .rule-short  { margin: 0.8rem auto; }
+
+    .rsvp-link:hover { color: #3d3225; border-bottom-color: #5a4e38; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════
+     PHASE 1 — ENVELOPE + FOLDED CARD
+══════════════════════════════════ -->
+<div id="scene">
+
+  <!-- FOLDED CARD (behind envelope, rises out) -->
+  <div id="card-outer">
+
+    <!-- TOP PANEL -->
+    <div id="panel-top-wrap">
+      <div id="panel-top">
+        <div class="crease"></div>
+        <!-- top slice of content -->
+        <div class="card-content-full card-inner" id="ct">
+          <div class="crest">
+            <svg viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg">
+              <path d="M65 10 L110 30 L110 80 Q110 110 65 122 Q20 110 20 80 L20 30 Z" fill="none" stroke="#a09070" stroke-width="0.8"/>
+              <g fill="none" stroke="#a09070" stroke-width="0.7">
+                <path d="M20 50 Q8 45 5 30"/><ellipse cx="10" cy="38" rx="5" ry="9" transform="rotate(-40 10 38)"/>
+                <ellipse cx="6" cy="25" rx="4" ry="7" transform="rotate(-60 6 25)"/>
+                <path d="M20 65 Q5 60 2 45"/><ellipse cx="8" cy="52" rx="4" ry="8" transform="rotate(-35 8 52)"/>
+                <path d="M20 80 Q8 78 6 65"/><ellipse cx="10" cy="70" rx="4" ry="7" transform="rotate(-20 10 70)"/>
+                <circle cx="4" cy="23" r="2" fill="#a09070"/><circle cx="1" cy="43" r="2" fill="#a09070"/>
+              </g>
+              <g fill="none" stroke="#a09070" stroke-width="0.7">
+                <path d="M110 50 Q122 45 125 30"/><ellipse cx="120" cy="38" rx="5" ry="9" transform="rotate(40 120 38)"/>
+                <ellipse cx="124" cy="25" rx="4" ry="7" transform="rotate(60 124 25)"/>
+                <path d="M110 65 Q125 60 128 45"/><ellipse cx="122" cy="52" rx="4" ry="8" transform="rotate(35 122 52)"/>
+                <path d="M110 80 Q122 78 124 65"/><ellipse cx="120" cy="70" rx="4" ry="7" transform="rotate(20 120 70)"/>
+                <circle cx="126" cy="23" r="2" fill="#a09070"/><circle cx="129" cy="43" r="2" fill="#a09070"/>
+              </g>
+              <g fill="none" stroke="#a09070" stroke-width="0.7">
+                <path d="M65 10 Q50 5 40 8"/><path d="M65 10 Q80 5 90 8"/>
+                <ellipse cx="42" cy="6" rx="4" ry="7" transform="rotate(-70 42 6)"/>
+                <ellipse cx="88" cy="6" rx="4" ry="7" transform="rotate(70 88 6)"/>
+                <circle cx="38" cy="4" r="1.5" fill="#a09070"/><circle cx="92" cy="4" r="1.5" fill="#a09070"/>
+              </g>
+              <text x="65" y="62" text-anchor="middle" font-family="Cinzel,serif" font-size="22" fill="#5a4e38">A</text>
+              <text x="65" y="90" text-anchor="middle" font-family="Cinzel,serif" font-size="22" fill="#5a4e38">P</text>
+            </svg>
+          </div>
+          <p class="hosts">Joseph Kellerman y Lisa Kellerman</p>
+          <hr class="rule-short"/>
+          <p class="invitation-text">con la alegría en sus corazones, solicitan el honor<br/>de su presencia en la unión matrimonial de su hija</p>
+          <hr class="rule"/>
+          <p class="bride-name">Anna Elise Kellerman</p>
+          <span class="connector">y</span>
+          <p class="groom-name">Pablo Guzmán-Gómez</p>
+          <p class="groom-parents">hijo de Fernando Guzmán y María Cristina Gómez</p>
+          <hr class="rule"/>
+          <p class="event-detail">Sábado, 12 de Septiembre de 2026</p>
+          <p class="event-detail">A las dos de la tarde</p>
+          <p class="section-label"><span class="diamond">✦</span>Ceremonia Religiosa<span class="diamond">✦</span></p>
+          <p class="venue-name">St. Gertrude Catholic Church</p>
+          <p class="venue-address">6543 Miami Ave<br/>Cincinnati, Ohio</p>
+          <hr class="rule"/>
+          <p class="section-label"><span class="diamond">✦</span>Recepción<span class="diamond">✦</span></p>
+          <p class="venue-name">The Kellerman Property</p>
+          <p class="venue-address">2686 OH-222<br/>Bethel, Ohio</p>
+          <hr class="rule"/>
+          <p class="section-label">Vestimenta</p>
+          <p class="dress-code">Etiqueta Formal</p>
+          <hr class="rule"/>
+          <p class="section-label">Confirmación de Asistencia</p>
+          <a class="rsvp-link" href="https://www.zola.com/wedding/pabloandanna2026" target="_blank">zola.com/wedding/pabloandanna2026</a>
+          <p class="rsvp-deadline">antes del 12 de agosto de 2026</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MID PANEL -->
+    <div id="panel-mid-wrap">
+      <div id="panel-mid">
+        <div class="crease"></div>
+        <div class="card-content-full card-inner" id="cm">
+          <div class="crest">
+            <svg viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg">
+              <path d="M65 10 L110 30 L110 80 Q110 110 65 122 Q20 110 20 80 L20 30 Z" fill="none" stroke="#a09070" stroke-width="0.8"/>
+              <g fill="none" stroke="#a09070" stroke-width="0.7">
+                <path d="M20 50 Q8 45 5 30"/><ellipse cx="10" cy="38" rx="5" ry="9" transform="rotate(-40 10 38)"/>
+                <ellipse cx="6" cy="25" rx="4" ry="7" transform="rotate(-60 6 25)"/>
+                <path d="M20 65 Q5 60 2 45"/><ellipse cx="8" cy="52" rx="4" ry="8" transform="rotate(-35 8 52)"/>
+                <path d="M20 80 Q8 78 6 65"/><ellipse cx="10" cy="70" rx="4" ry="7" transform="rotate(-20 10 70)"/>
+                <circle cx="4" cy="23" r="2" fill="#a09070"/><circle cx="1" cy="43" r="2" fill="#a09070"/>
+              </g>
+              <g fill="none" stroke="#a09070" stroke-width="0.7">
+                <path d="M110 50 Q122 45 125 30"/><ellipse cx="120" cy="38" rx="5" ry="9" transform="rotate(40 120 38)"/>
+                <ellipse cx="124" cy="25" rx="4" ry="7" transform="rotate(60 124 25)"/>
+                <path d="M110 65 Q125 60 128 45"/><ellipse cx="122" cy="52" rx="4" ry="8" transform="rotate(35 122 52)"/>
+                <path d="M110 80 Q122 78 124 65"/><ellipse cx="120" cy="70" rx="4" ry="7" transform="rotate(20 120 70)"/>
+                <circle cx="126" cy="23" r="2" fill="#a09070"/><circle cx="129" cy="43" r="2" fill="#a09070"/>
+              </g>
+              <g fill="none" stroke="#a09070" stroke-width="0.7">
+                <path d="M65 10 Q50 5 40 8"/><path d="M65 10 Q80 5 90 8"/>
+                <ellipse cx="42" cy="6" rx="4" ry="7" transform="rotate(-70 42 6)"/>
+                <ellipse cx="88" cy="6" rx="4" ry="7" transform="rotate(70 88 6)"/>
+                <circle cx="38" cy="4" r="1.5" fill="#a09070"/><circle cx="92" cy="4" r="1.5" fill="#a09070"/>
+              </g>
+              <text x="65" y="62" text-anchor="middle" font-family="Cinzel,serif" font-size="22" fill="#5a4e38">A</text>
+              <text x="65" y="90" text-anchor="middle" font-family="Cinzel,serif" font-size="22" fill="#5a4e38">P</text>
+            </svg>
+          </div>
+          <p class="hosts">Joseph Kellerman y Lisa Kellerman</p>
+          <hr class="rule-short"/>
+          <p class="invitation-text">con la alegría en sus corazones, solicitan el honor<br/>de su presencia en la unión matrimonial de su hija</p>
+          <hr class="rule"/>
+          <p class="bride-name">Anna Elise Kellerman</p>
+          <span class="connector">y</span>
+          <p class="groom-name">Pablo Guzmán-Gómez</p>
+          <p class="groom-parents">hijo de Fernando Guzmán y María Cristina Gómez</p>
+          <hr class="rule"/>
+          <p class="event-detail">Sábado, 12 de Septiembre de 2026</p>
+          <p class="event-detail">A las dos de la tarde</p>
+          <p class="section-label"><span class="diamond">✦</span>Ceremonia Religiosa<span class="diamond">✦</span></p>
+          <p class="venue-name">St. Gertrude Catholic Church</p>
+          <p class="venue-address">6543 Miami Ave<br/>Cincinnati, Ohio</p>
+          <hr class="rule"/>
+          <p class="section-label"><span class="diamond">✦</span>Recepción<span class="diamond">✦</span></p>
+          <p class="venue-name">The Kellerman Property</p>
+          <p class="venue-address">2686 OH-222<br/>Bethel, Ohio</p>
+          <hr class="rule"/>
+          <p class="section-label">Vestimenta</p>
+          <p class="dress-code">Etiqueta Formal</p>
+          <hr class="rule"/>
+          <p class="section-label">Confirmación de Asistencia</p>
+          <a class="rsvp-link" href="https://www.zola.com/wedding/pabloandanna2026" target="_blank">zola.com/wedding/pabloandanna2026</a>
+          <p class="rsvp-deadline">antes del 12 de agosto de 2026</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM PANEL (anchor) -->
+    <div id="panel-bot">
+      <div class="card-content-full card-inner" id="cb">
+        <div class="crest">
+          <svg viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg">
+            <path d="M65 10 L110 30 L110 80 Q110 110 65 122 Q20 110 20 80 L20 30 Z" fill="none" stroke="#a09070" stroke-width="0.8"/>
+            <g fill="none" stroke="#a09070" stroke-width="0.7">
+              <path d="M20 50 Q8 45 5 30"/><ellipse cx="10" cy="38" rx="5" ry="9" transform="rotate(-40 10 38)"/>
+              <ellipse cx="6" cy="25" rx="4" ry="7" transform="rotate(-60 6 25)"/>
+              <path d="M20 65 Q5 60 2 45"/><ellipse cx="8" cy="52" rx="4" ry="8" transform="rotate(-35 8 52)"/>
+              <path d="M20 80 Q8 78 6 65"/><ellipse cx="10" cy="70" rx="4" ry="7" transform="rotate(-20 10 70)"/>
+              <circle cx="4" cy="23" r="2" fill="#a09070"/><circle cx="1" cy="43" r="2" fill="#a09070"/>
+            </g>
+            <g fill="none" stroke="#a09070" stroke-width="0.7">
+              <path d="M110 50 Q122 45 125 30"/><ellipse cx="120" cy="38" rx="5" ry="9" transform="rotate(40 120 38)"/>
+              <ellipse cx="124" cy="25" rx="4" ry="7" transform="rotate(60 124 25)"/>
+              <path d="M110 65 Q125 60 128 45"/><ellipse cx="122" cy="52" rx="4" ry="8" transform="rotate(35 122 52)"/>
+              <path d="M110 80 Q122 78 124 65"/><ellipse cx="120" cy="70" rx="4" ry="7" transform="rotate(20 120 70)"/>
+              <circle cx="126" cy="23" r="2" fill="#a09070"/><circle cx="129" cy="43" r="2" fill="#a09070"/>
+            </g>
+            <g fill="none" stroke="#a09070" stroke-width="0.7">
+              <path d="M65 10 Q50 5 40 8"/><path d="M65 10 Q80 5 90 8"/>
+              <ellipse cx="42" cy="6" rx="4" ry="7" transform="rotate(-70 42 6)"/>
+              <ellipse cx="88" cy="6" rx="4" ry="7" transform="rotate(70 88 6)"/>
+              <circle cx="38" cy="4" r="1.5" fill="#a09070"/><circle cx="92" cy="4" r="1.5" fill="#a09070"/>
+            </g>
+            <text x="65" y="62" text-anchor="middle" font-family="Cinzel,serif" font-size="22" fill="#5a4e38">A</text>
+            <text x="65" y="90" text-anchor="middle" font-family="Cinzel,serif" font-size="22" fill="#5a4e38">P</text>
+          </svg>
+        </div>
+        <p class="hosts">Joseph Kellerman y Lisa Kellerman</p>
+        <hr class="rule-short"/>
+        <p class="invitation-text">con la alegría en sus corazones, solicitan el honor<br/>de su presencia en la unión matrimonial de su hija</p>
+        <hr class="rule"/>
+        <p class="bride-name">Anna Elise Kellerman</p>
+        <span class="connector">y</span>
+        <p class="groom-name">Pablo Guzmán-Gómez</p>
+        <p class="groom-parents">hijo de Fernando Guzmán y María Cristina Gómez</p>
+        <hr class="rule"/>
+        <p class="event-detail">Sábado, 12 de Septiembre de 2026</p>
+        <p class="event-detail">A las dos de la tarde</p>
+        <p class="section-label"><span class="diamond">✦</span>Ceremonia Religiosa<span class="diamond">✦</span></p>
+        <p class="venue-name">St. Gertrude Catholic Church</p>
+        <p class="venue-address">6543 Miami Ave<br/>Cincinnati, Ohio</p>
+        <hr class="rule"/>
+        <p class="section-label"><span class="diamond">✦</span>Recepción<span class="diamond">✦</span></p>
+        <p class="venue-name">The Kellerman Property</p>
+        <p class="venue-address">2686 OH-222<br/>Bethel, Ohio</p>
+        <hr class="rule"/>
+        <p class="section-label">Vestimenta</p>
+        <p class="dress-code">Etiqueta Formal</p>
+        <hr class="rule"/>
+        <p class="section-label">Confirmación de Asistencia</p>
+        <a class="rsvp-link" href="https://www.zola.com/wedding/pabloandanna2026" target="_blank">zola.com/wedding/pabloandanna2026</a>
+        <p class="rsvp-deadline">antes del 12 de agosto de 2026</p>
+      </div>
+    </div>
+
+  </div><!-- /card-outer -->
+
+  <!-- ENVELOPE on top -->
+  <div id="envelope-wrap" onclick="openEnvelope()" role="button" aria-label="Abrir invitación">
+    <div id="env-body"></div>
+    <div id="env-bottom-left"></div>
+    <div id="env-bottom-right"></div>
+    <div id="env-left-flap"></div>
+    <div id="env-right-flap"></div>
+    <div id="env-top-flap">
+      <svg viewBox="0 0 340 115" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+        <polygon points="0,0 340,0 170,115" fill="#e8dfc8" stroke="#c8ba9a" stroke-width="1"/>
+        <g fill="none" stroke="#b8aa88" stroke-width="0.8" opacity="0.7">
+          <path d="M30 20 Q20 30 15 50"/>
+          <ellipse cx="20" cy="28" rx="5" ry="9" transform="rotate(-30 20 28)"/>
+          <ellipse cx="14" cy="42" rx="4" ry="7" transform="rotate(-15 14 42)"/>
+          <circle cx="12" cy="18" r="2" fill="#b8aa88"/>
+          <path d="M310 20 Q320 30 325 50"/>
+          <ellipse cx="320" cy="28" rx="5" ry="9" transform="rotate(30 320 28)"/>
+          <ellipse cx="326" cy="42" rx="4" ry="7" transform="rotate(15 326 42)"/>
+          <circle cx="328" cy="18" r="2" fill="#b8aa88"/>
+          <path d="M155 8 Q165 4 175 8"/>
+          <ellipse cx="152" cy="10" rx="3" ry="6" transform="rotate(-50 152 10)"/>
+          <ellipse cx="178" cy="10" rx="3" ry="6" transform="rotate(50 178 10)"/>
+          <circle cx="165" cy="3" r="2" fill="#b8aa88"/>
+        </g>
+        <text x="170" y="55" text-anchor="middle" font-family="Cinzel,serif" font-size="14" fill="#7a6a50" letter-spacing="6">A · P</text>
+      </svg>
+    </div>
+    <div id="wax-seal">
+      <svg viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+        <polygon points="26,2 29,10 37,5 35,13 44,12 40,20 50,22 44,28 50,34 41,33 42,42 34,38 30,47 26,40 22,47 18,38 10,42 11,33 2,34 8,28 2,22 12,20 8,12 17,13 15,5 24,10" fill="#8b3a3a" stroke="#6b2a2a" stroke-width="0.5"/>
+        <circle cx="26" cy="26" r="14" fill="#9e4444" stroke="#7a3030" stroke-width="0.5"/>
+        <text x="26" y="31" text-anchor="middle" font-family="Cinzel,serif" font-size="10" fill="#f5e8d0" letter-spacing="2">AP</text>
+      </svg>
+    </div>
+  </div>
+
+  <p id="tap-hint">Toca para abrir</p>
+</div>
+
+<!-- ══════════════════════════════════
+     PHASE 2 — FULL SCROLLABLE CARD
+══════════════════════════════════ -->
+<div id="full-card-wrap">
+  <div class="full-card">
+    <div class="crest">
+      <svg viewBox="0 0 130 130" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Monograma A y P">
+        <path d="M65 10 L110 30 L110 80 Q110 110 65 122 Q20 110 20 80 L20 30 Z" fill="none" stroke="#a09070" stroke-width="0.8"/>
+        <g fill="none" stroke="#a09070" stroke-width="0.7">
+          <path d="M20 50 Q8 45 5 30"/><ellipse cx="10" cy="38" rx="5" ry="9" transform="rotate(-40 10 38)"/>
+          <ellipse cx="6" cy="25" rx="4" ry="7" transform="rotate(-60 6 25)"/>
+          <path d="M20 65 Q5 60 2 45"/><ellipse cx="8" cy="52" rx="4" ry="8" transform="rotate(-35 8 52)"/>
+          <path d="M20 80 Q8 78 6 65"/><ellipse cx="10" cy="70" rx="4" ry="7" transform="rotate(-20 10 70)"/>
+          <circle cx="4" cy="23" r="2" fill="#a09070"/><circle cx="1" cy="43" r="2" fill="#a09070"/>
+        </g>
+        <g fill="none" stroke="#a09070" stroke-width="0.7">
+          <path d="M110 50 Q122 45 125 30"/><ellipse cx="120" cy="38" rx="5" ry="9" transform="rotate(40 120 38)"/>
+          <ellipse cx="124" cy="25" rx="4" ry="7" transform="rotate(60 124 25)"/>
+          <path d="M110 65 Q125 60 128 45"/><ellipse cx="122" cy="52" rx="4" ry="8" transform="rotate(35 122 52)"/>
+          <path d="M110 80 Q122 78 124 65"/><ellipse cx="120" cy="70" rx="4" ry="7" transform="rotate(20 120 70)"/>
+          <circle cx="126" cy="23" r="2" fill="#a09070"/><circle cx="129" cy="43" r="2" fill="#a09070"/>
+        </g>
+        <g fill="none" stroke="#a09070" stroke-width="0.7">
+          <path d="M65 10 Q50 5 40 8"/><path d="M65 10 Q80 5 90 8"/>
+          <ellipse cx="42" cy="6" rx="4" ry="7" transform="rotate(-70 42 6)"/>
+          <ellipse cx="88" cy="6" rx="4" ry="7" transform="rotate(70 88 6)"/>
+          <circle cx="38" cy="4" r="1.5" fill="#a09070"/><circle cx="92" cy="4" r="1.5" fill="#a09070"/>
+        </g>
+        <text x="65" y="62" text-anchor="middle" font-family="Cinzel,serif" font-size="22" fill="#5a4e38">A</text>
+        <text x="65" y="90" text-anchor="middle" font-family="Cinzel,serif" font-size="22" fill="#5a4e38">P</text>
+      </svg>
+    </div>
+    <p class="hosts">Joseph Kellerman y Lisa Kellerman</p>
+    <hr class="rule-short"/>
+    <p class="invitation-text">con la alegría en sus corazones, solicitan el honor<br/>de su presencia en la unión matrimonial de su hija</p>
+    <hr class="rule"/>
+    <p class="bride-name">Anna Elise Kellerman</p>
+    <span class="connector">y</span>
+    <p class="groom-name">Pablo Guzmán-Gómez</p>
+    <p class="groom-parents">hijo de Fernando Guzmán y María Cristina Gómez</p>
+    <hr class="rule"/>
+    <p class="event-detail">Sábado, 12 de Septiembre de 2026</p>
+    <p class="event-detail">A las dos de la tarde</p>
+    <p class="section-label"><span class="diamond">✦</span>Ceremonia Religiosa<span class="diamond">✦</span></p>
+    <p class="venue-name">St. Gertrude Catholic Church</p>
+    <p class="venue-address">6543 Miami Ave<br/>Cincinnati, Ohio</p>
+    <hr class="rule"/>
+    <p class="section-label"><span class="diamond">✦</span>Recepción<span class="diamond">✦</span></p>
+    <p class="venue-name">The Kellerman Property</p>
+    <p class="venue-address">2686 OH-222<br/>Bethel, Ohio</p>
+    <hr class="rule"/>
+    <p class="section-label">Vestimenta</p>
+    <p class="dress-code">Etiqueta Formal</p>
+    <hr class="rule"/>
+    <p class="section-label">Confirmación de Asistencia</p>
+    <a class="rsvp-link" href="https://www.zola.com/wedding/pabloandanna2026" target="_blank">zola.com/wedding/pabloandanna2026</a>
+    <p class="rsvp-deadline">antes del 12 de agosto de 2026</p>
+  </div>
+</div>
+
+<script>
+  let opened = false;
+
+  function openEnvelope() {
+    if (opened) return;
+    opened = true;
+
+    // 1 — seal + hint disappear
+    document.getElementById('wax-seal').classList.add('hidden');
+    document.getElementById('tap-hint').classList.add('hidden');
+
+    // 2 — flap opens
+    setTimeout(() => {
+      document.getElementById('env-top-flap').classList.add('open');
+    }, 200);
+
+    // 3 — card starts rising (still folded)
+    setTimeout(() => {
+      document.getElementById('card-outer').classList.add('rising');
+    }, 750);
+
+    // 4 — bottom fold opens first (mid-panel unfolds)
+    setTimeout(() => {
+      document.getElementById('panel-mid-wrap').classList.add('unfolded');
+    }, 1150);
+
+    // 5 — top fold opens (top-panel unfolds), slightly after mid
+    setTimeout(() => {
+      document.getElementById('panel-top-wrap').classList.add('unfolded');
+    }, 1380);
+
+    // 6 — fade scene, show full card
+    setTimeout(() => {
+      const scene = document.getElementById('scene');
+      scene.style.transition = 'opacity 0.6s ease';
+      scene.style.opacity = '0';
+    }, 2500);
+
+    setTimeout(() => {
+      document.getElementById('scene').style.display = 'none';
+      document.body.style.overflow = 'auto';
+      const full = document.getElementById('full-card-wrap');
+      full.style.display = 'block';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        full.style.opacity = '1';
+      }));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 3200);
+  }
+</script>
+</body>
+</html>
